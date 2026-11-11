@@ -1,0 +1,21 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# Secrets
+.env
+
+# Notebook and macOS clutter
+.ipynb_checkpoints/
+.DS_Store
+
+# Local AI tool folders
+.claude/
+.agents/
