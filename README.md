@@ -1,127 +1,80 @@
-# RAG Document Q&A
-
-Ask questions in plain English and get answers grounded in your own documents.
-
-This project is a **Retrieval-Augmented Generation (RAG)** pipeline in Python. It loads your files, splits them into chunks, embeds them, and indexes them with FAISS. For each question, it retrieves the most relevant passages and has an OpenAI model answer from those passages only.
-
-## How it works
-
-```mermaid
-flowchart LR
-    A[Files in data/] --> B[Load<br/>data_loader.py]
-    B --> C[Split into chunks<br/>embedding.py]
-    C --> D[Embed<br/>all-MiniLM-L6-v2]
-    D --> E[(FAISS index<br/>faiss_store/)]
-    Q[User question] --> F[Embed question]
-    F --> E
-    E -->|top-k chunks| G[OpenAI LLM<br/>search.py]
-    G --> H[Answer]
-```
-
-1. **Load:** reads every supported file in `data/` into LangChain `Document` objects.
-2. **Split:** breaks documents into 1,000-character chunks with 200 characters of overlap, so passages that cross a chunk boundary aren't lost.
-3. **Embed:** converts each chunk into a 384-dimension vector with Sentence-Transformers (`all-MiniLM-L6-v2`).
-4. **Store:** indexes the vectors in FAISS and saves the index to disk, so later runs reload it instead of re-embedding everything.
-5. **Retrieve:** embeds the question with the same model and finds the closest chunks.
-6. **Generate:** sends the question and the retrieved chunks to an OpenAI model, which writes the answer.
-
-## Supported file types
-
-PDF, TXT, CSV, Excel (`.xlsx`), Word (`.docx`) and JSON.
-
-## Project structure
-
-```
-RAG/
-├── app.py                # Entry point: runs a sample question
+### Enterprise Knowledge RAG Assistant & Evaluation Suite
+A production-grade Retrieval-Augmented Generation (RAG) pipeline designed to ingest multi-format unstructured documents, perform dense vector similarity search, rerank context candidates, and synthesize grounded, hallucination-free answers with verifiable source attribution.Includes an automated RAG Triad Evaluation Suite to continuously benchmark answer faithfulness and retrieval accuracy.⚡ System Architecture & Execution FlowUser Query / Document Ingestion
+          │
+          ▼
+┌──────────────────┐
+│  Data Loaders    │  (Parses PDF, TXT, CSV, DOCX, JSON via LangChain)
+└─────────┬────────┘
+          │
+          ▼
+┌──────────────────┐
+│ Context Chunking │  (1,000-char sliding windows w/ 200-char overlap)
+└─────────┬────────┘
+          │
+          ▼
+┌──────────────────┐
+│ Vector Embedding │  (Sentence-Transformers `all-MiniLM-L6-v2` -> 384-dim)
+└─────────┬────────┘
+          │
+          ▼
+┌──────────────────┐
+│   FAISS Index    │  (Persisted vector store on disk for instant retrieval)
+└─────────┬────────┘
+          │  (Top-K Similarity Search)
+          ▼
+┌──────────────────┐
+│  Cross-Encoder   │  (Reranks top context candidates via SentenceTransformers)
+└─────────┬────────┘
+          │
+          ▼
+┌──────────────────┐
+│  LLM Synthesis   │  (OpenAI GPT-4o / gpt-4o-mini with Grounded Prompts)
+└─────────┬────────┘
+          │
+          ▼
+┌──────────────────┐
+│ Automated Eval   │  (Pydantic Structured Evaluation for Faithfulness)
+└──────────────────┘
+### Key Engineering FeaturesMulti-Format Ingestion: 
+Ingests and processes .pdf, .txt, .csv, .xlsx, .docx, and .json files seamlessly.Optimized Chunking Strategy: Implements 1,000-character sliding-window chunking with 200-character overlap to retain context across sentence boundaries.Dense Vector Search: Encodes text into 384-dimensional embeddings using Sentence-Transformers (all-MiniLM-L6-v2) and indexes vectors locally using FAISS.Cross-Encoder Reranking (rerank.py): Filters raw vector retrieval results using a second-pass cross-encoder model to eliminate context noise and lower token costs.Automated Evaluation Benchmarking (evaluate.py): Uses OpenAI Structured Outputs via Pydantic schemas to calculate hallucination risk and score response faithfulness (0.0 to 1.0).Interactive UI (app.py): Streamlit web UI featuring document upload controls, real-time query handling, and expandable citation trees.
+# Project StructureRAG/
+├── app.py                # Interactive Streamlit Web Interface
+├── evaluate.py           # Automated RAG Faithfulness & Evaluation Suite
+├── rerank.py             # Cross-encoder reranking & candidate filtering
 ├── src/
-│   ├── data_loader.py    # Loads all supported files from data/
-│   ├── embedding.py      # Chunking and embedding pipeline
-│   ├── vectorstore.py    # FAISS index: build, save, load, query
-│   └── search.py         # Retrieval + LLM answer (RAGSearch)
+│   ├── data_loader.py    # Multi-format document parser (PDF, TXT, CSV, DOCX, JSON)
+│   ├── embedding.py      # Chunking strategy & Sentence-Transformer pipeline
+│   ├── vectorstore.py    # FAISS index builder, disk persister, and query engine
+│   └── search.py         # End-to-end retrieval + LLM synthesis engine (RAGSearch)
 ├── notebook/
-│   ├── document.ipynb    # Document loaders walkthrough
-│   └── pdf_loader.ipynb  # Full prototype with ChromaDB, sources and confidence scores
+│   ├── document.ipynb    # Ingestion exploration walkthrough
+│   └── pdf_loader.ipynb  # ChromaDB prototype with confidence scoring
 ├── data/
-│   ├── pdf/              # Your PDFs
-│   └── text_files/       # Your text files
-├── faiss_store/          # Saved FAISS index (created automatically)
-├── pyproject.toml
-└── uv.lock
-```
-
-## Getting started
-
-### 1. Requirements
-
-- Python 3.12+
-- [uv](https://docs.astral.sh/uv/)
-- An OpenAI API key
-
-### 2. Install
-
-```bash
-git clone https://github.com/Safaazaoui/RAG.git
+│   ├── pdf/              # Document intake (PDFs)
+│   └── text_files/       # Document intake (Text files)
+├── faiss_store/          # Auto-generated local FAISS vector store
+├── pyproject.toml        # Dependencies & package specification
+└── uv.lock               # Lockfile for reproducible builds
+# Getting StartedPrerequisitesPython 3.12+uv 
+(Fast Python package installer)OpenAI API Key1. Installationgit clone https://github.com/Safaazaoui/RAG.git
 cd RAG
 uv sync
-```
+2. Configure Environment VariablesCreate a .env file in the project root:OPENAI_API_KEY=your_openai_api_key_here
+OPENAI_MODEL=gpt-4o-mini
+Note: .env is ignored by git. Never commit live API keys.3. Add DocumentsPlace your raw source files inside the data/ directory (subfolders supported).4. Running the SystemLaunch Interactive Web UI:uv run streamlit run app.py
+Run RAG Faithfulness Evaluation Benchmarks:uv run evaluate.py
+Run Command-Line Entrypoint:uv run app.py
+Note: The first run auto-indexes documents into faiss_store/. To re-index after adding new files, delete faiss_store/ and re-run.💻 Programmatic UsageIntegrate RAGSearch directly into backend API routes or worker jobs:from src.search import RAGSearch
 
-### 3. Add your API key
-
-Create a `.env` file in the project root:
-
-```
-OPENAI_API_KEY=your-key-here
-OPENAI_MODEL=your-model-id
-```
-
-`.env` is listed in `.gitignore`. Never commit it.
-
-### 4. Add documents
-
-Put your files in `data/` (any subfolder works).
-
-### 5. Run
-
-```bash
-uv run app.py
-```
-
-The first run builds the FAISS index in `faiss_store/`. Later runs load the saved index.
-
-To change the question, edit `query` in `app.py`.
-
-> **Added new documents?** Delete the `faiss_store/` folder and run again to rebuild the index.
-
-## Using it in your own code
-
-```python
-from src.search import RAGSearch
-
+# Initialize search engine
 rag = RAGSearch()
+
+# Query index and return synthesized response with top-k context
 answer = rag.search_and_summarize("What is Prolog?", top_k=3)
 print(answer)
-```
-
-## Tech stack
-
-| Layer | Tool |
-|---|---|
-| Orchestration | LangChain |
-| Document loading | PyPDF, PyMuPDF, LangChain community loaders |
-| Embeddings | Sentence-Transformers (`all-MiniLM-L6-v2`) |
-| Vector search | FAISS (app), ChromaDB (notebook prototype) |
-| LLM | OpenAI API via `langchain-openai` |
-| Environment | uv, python-dotenv |
-
-## Roadmap
-
-- [ ] Show sources (file name and page) with each answer
-- [ ] Hybrid search: BM25 keyword search + vector search, merged with Reciprocal Rank Fusion
-- [ ] Retrieval evaluation set to measure answer quality
-- [ ] FastAPI endpoint and Streamlit interface
-- [ ] Docker setup
-
-## Author
-
-Safaa Zaoui: Computer Science (Co-op), Toronto Metropolitan University
+# Tech Stack & DependenciesLayerTechnology / FrameworkOrchestrationLangChain 
+(langchain-core, langchain-community)Document ProcessingPyPDF, PyMuPDF, UnstructuredEmbeddings & RerankingSentence-Transformers (all-MiniLM-L6-v2), CrossEncoderVector IndexingFAISS (faiss-cpu), ChromaDBLLM InterfaceOpenAI API (langchain-openai), PydanticFrontend & UIStreamlitPackage Managementuv, python-dotenv Roadmap[x] Multi-format document ingestion pipeline[x] Local vector persistence with FAISS[x] Cross-encoder context reranking module (rerank.py)[x] Automated faithfulness evaluation benchmark (evaluate.py)[x] Interactive 
+# Streamlit application interface 
+(app.py)[ ] Hybrid retrieval (BM25 sparse search + FAISS dense search with RRF)[ ] Docker containerization for deployment 
+# Author
+Safaa Zaoui Computer Science (Co-op), Toronto Metropolitan University
